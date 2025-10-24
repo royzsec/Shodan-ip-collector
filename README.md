@@ -1,6 +1,3 @@
-README.md
-markdown Copy# Shodan IP Collector
-
 A **Bash script with a text-based UI** to collect IP addresses from Shodan using custom dorks. The script stores your Shodan API key for future use and supports real-time progress updates.
 
 ---
