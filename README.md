@@ -68,3 +68,9 @@ This project is open-source and available under the MIT License.
    git add README.md
    git commit -m "Add README"
    git push origin main
+
+
+POC:
+<img width="1493" height="852" alt="Screenshot 2025-10-24 at 10 45 21 AM" src="https://github.com/user-attachments/assets/a8ae420a-dab7-4d74-88ae-3882a129b290" />
+
+<img width="1493" height="852" alt="Screenshot 2025-10-24 at 10 47 49 AM" src="https://github.com/user-attachments/assets/3f497723-370b-4094-a083-f696ddd5e22d" />
