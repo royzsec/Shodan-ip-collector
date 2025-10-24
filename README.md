@@ -55,7 +55,7 @@ org:amazon port:80
 
 | Issue                | Solution                                  |
 |----------------------|-------------------------------------------|
-| Permission denied    | Run `chmod +x shodan_ui.sh`               |
+| Permission denied    | Run `chmod +x shodan-dork`               |
 | Missing dependencies | Install dialog, jq, and curl              |
 | API errors           | Verify your Shodan API key                |
 | Connection issues    | Check your internet connection            |
