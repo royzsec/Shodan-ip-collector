@@ -1,0 +1,120 @@
+#!/bin/bash
+
+# Check if dialog is installed
+if ! command -v dialog &> /dev/null; then
+    dialog --msgbox "Error: 'dialog' is not installed. Please install it to use this tool.\nOn Ubuntu/Debian: sudo apt install dialog\nOn macOS: brew install dialog" 10 50
+    exit 1
+fi
+
+# Check if jq is installed
+if ! command -v jq &> /dev/null; then
+    dialog --msgbox "Error: 'jq' is not installed. Please install it to use this tool." 10 40
+    exit 1
+fi
+
+# Check if curl is installed
+if ! command -v curl &> /dev/null; then
+    dialog --msgbox "Error: 'curl' is not installed. Please install it to use this tool." 10 40
+    exit 1
+fi
+
+# Config file for API key
+CONFIG_FILE="$HOME/.shodan_api_key"
+
+# Function to get or set API key
+get_api_key() {
+    if [ -f "$CONFIG_FILE" ]; then
+        SHODAN_API_KEY=$(cat "$CONFIG_FILE")
+    else
+        SHODAN_API_KEY=$(dialog --inputbox "Enter your Shodan API key (it will be saved for future use):" 10 50 3>&1 1>&2 2>&3)
+        if [ -z "$SHODAN_API_KEY" ]; then
+            dialog --msgbox "API key cannot be empty." 10 30
+            exit 1
+        fi
+        echo "$SHODAN_API_KEY" > "$CONFIG_FILE"
+        chmod 600 "$CONFIG_FILE"
+    fi
+}
+
+# Get API key
+get_api_key
+
+# Main menu
+while true; do
+    choice=$(dialog --backtitle "Shodan IP Collector" \
+                    --title "Main Menu" \
+                    --menu "Choose an option:" 15 50 3 \
+                    1 "Enter Shodan Dork" \
+                    2 "Change API Key" \
+                    3 "Exit" \
+                    3>&1 1>&2 2>&3)
+
+    case $choice in
+        1)
+            # Ask for Shodan dork
+            dork=$(dialog --inputbox "Enter your Shodan dork (e.g., 'hostname:.gov.uk port:21'):" 10 50 3>&1 1>&2 2>&3)
+            if [ -z "$dork" ]; then
+                dialog --msgbox "Dork cannot be empty." 10 30
+                continue
+            fi
+
+            # URL-encode the dork
+            dork_encoded=$(printf '%s' "$dork" | jq -sRr @uri)
+
+            # Output file
+            output_file="shodan_ips_$(date +%Y%m%d_%H%M%S).txt"
+
+            # Fetch total results first
+            response=$(curl -s "https://api.shodan.io/shodan/host/search?key=$SHODAN_API_KEY&query=$dork_encoded" 2>/dev/null)
+            total_results=$(echo "$response" | jq '.total' 2>/dev/null)
+
+            if ! [[ "$total_results" =~ ^[0-9]+$ ]]; then
+                dialog --msgbox "Error: No results found or invalid dork." 10 40
+                continue
+            fi
+
+            if [ "$total_results" -eq 0 ]; then
+                dialog --msgbox "No results found for the given dork." 10 40
+                continue
+            fi
+
+            total_pages=$(( ($total_results + 99) / 100 ))
+
+            # Show progress
+            (
+                page=1
+                ips_collected=0
+                while [ $ips_collected -lt $total_results ]; do
+                    response=$(curl -s "https://api.shodan.io/shodan/host/search?key=$SHODAN_API_KEY&query=$dork_encoded&page=$page" 2>/dev/null)
+                    echo "$response" | jq -r '.matches[].ip_str' >> "$output_file"
+                    ips_collected=$((ips_collected + 100))
+                    page=$((page + 1))
+                    percent=$(( (page - 1) * 100 / total_pages ))
+                    echo "$percent"
+                    sleep 1
+                done
+            ) | dialog --gauge "Collecting IPs... (Page $page of $total_pages)" 10 50 0
+
+            dialog --msgbox "IPs collected and saved to $output_file" 10 40
+            ;;
+        2)
+            # Change API key
+            SHODAN_API_KEY=$(dialog --inputbox "Enter your new Shodan API key:" 10 40 3>&1 1>&2 2>&3)
+            if [ -z "$SHODAN_API_KEY" ]; then
+                dialog --msgbox "API key cannot be empty." 10 30
+                continue
+            fi
+            echo "$SHODAN_API_KEY" > "$CONFIG_FILE"
+            chmod 600 "$CONFIG_FILE"
+            dialog --msgbox "API key updated successfully." 10 30
+            ;;
+        3)
+            clear
+            exit 0
+            ;;
+        *)
+            dialog --msgbox "Invalid option. Please try again." 10 30
+            ;;
+    esac
+done
+
