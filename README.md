@@ -1,76 +1,34 @@
-A **Bash script with a text-based UI** to collect IP addresses from Shodan using custom dorks. The script stores your Shodan API key for future use and supports real-time progress updates.
-
----
-
-## Features
-- **Interactive UI:** Easy-to-use menu system.
-- **API Key Storage:** Save your Shodan API key securely.
-- **Real-Time Progress:** Track IP collection with a progress bar.
-- **Flexible Dorks:** Supports any Shodan search query.
-
----
-
-## Requirements
-- `dialog` (for the UI)
-- `jq` (for JSON parsing)
-- `curl` (for API requests)
-- A **Shodan API key** ([Get one here](https://www.shodan.io/))
-
----
-
-## Installation
-
-### 1. Clone the Repository
-```bash
-git clone git@github.com\:royzsec/Shodan-ip-collector.git
+#Shodan IP Collector
+#A Bash Script for Shodan IP Collection
+#Installation & Setup
+bash Copygit clone git@github.com:royzsec/Shodan-ip-collector.git
 cd Shodan-ip-collector
-2. Make the Script Executable
-bash Copychmod +x shodan_ui.sh
-3. Install Dependencies
-Ubuntu/Debian:
-bash Copysudo apt update
-sudo apt install dialog jq curl
-macOS:
-bash Copybrew install dialog jq curl
-
-Usage
-1. Run the Script
+chmod +x shodan_ui.sh
+sudo apt update && sudo apt install dialog jq curl  # For Debian/Ubuntu
+brew install dialog jq curl                         # For macOS
+Usage Instructions
+Run the application:
 bash Copy./shodan_ui.sh
-2. Follow the Prompts
 
-Enter your Shodan API key (saved for future use).
-Enter your Shodan dork (e.g., hostname:.gov.uk port:21).
-The script will collect IPs and save them to a file (shodan_ips_[timestamp].txt).
+#First run: Enter your Shodan API key (saved for future use)
+Enter your search dork when prompted
+Results saved to shodan_ips_[timestamp].txt
 
+#Example Dorks
+ Copyhostname:.gov.uk port:21
+apache country:US
+product:nginx os:linux
+title:"webcam" city:NewYork
+org:amazon port:80
+#Features
+• Interactive menu system
+• Secure API key storage
+• Real-time progress tracking
+• Flexible search queries
+• Automatic result saving
+#Troubleshooting
+IssueSolutionPermission deniedRun chmod +x shodan_ui.shMissing dependenciesInstall dialog, jq, curlAPI errorsVerify your Shodan API keyConnection issuesCheck internet connection
 
-Example Dorks
-
-apache port:80
-hostname:.gov.uk
-product:nginx country:US
-
-
-Troubleshooting
-
-Permission Denied: Ensure the script is executable (chmod +x shodan_ui.sh).
-Missing Dependencies: Install dialog, jq, and curl as shown above.
-API Errors: Double-check your Shodan API key.
-
-
-License
-This project is open-source and available under the MIT License.
- Copy---
-
-### **How to Use This README**
-1. Save this content as `README.md` in your project directory.
-2. Push it to GitHub:
-   ```bash
-   git add README.md
-   git commit -m "Add README"
-   git push origin main
-
-
-POC:
-<img width="1493" height="852" alt="Screenshot 2025-10-24 at 10 45 21 AM" src="https://github.com/user-attachments/assets/a8ae420a-dab7-4d74-88ae-3882a129b290" />
-
-<img width="1493" height="852" alt="Screenshot 2025-10-24 at 10 47 49 AM" src="https://github.com/user-attachments/assets/3f497723-370b-4094-a083-f696ddd5e22d" />
+#License
+Open-source under MIT License
+© 2025 royzsec
