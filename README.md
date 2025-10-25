@@ -17,6 +17,7 @@ git clone git@github.com:royzsec/Shodan-ip-collector.git
 
 2. Make the script executable:
 cd Shodan-ip-collector
+
 chmod +x shodan-dork
 
 
