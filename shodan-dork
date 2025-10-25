@@ -1,120 +1,327 @@
 #!/bin/bash
 
-# Check if dialog is installed
-if ! command -v dialog &> /dev/null; then
-    dialog --msgbox "Error: 'dialog' is not installed. Please install it to use this tool.\nOn Ubuntu/Debian: sudo apt install dialog\nOn macOS: brew install dialog" 10 50
-    exit 1
-fi
+# Shodan IP Collector with UI and Tutorial
+# Version: 2.1
+# Author: royzsec
+# Description: Enhanced Bash script with tutorial for collecting IPs from Shodan
 
-# Check if jq is installed
-if ! command -v jq &> /dev/null; then
-    dialog --msgbox "Error: 'jq' is not installed. Please install it to use this tool." 10 40
-    exit 1
-fi
+# Configuration
+CONFIG_FILE="shodan_config.cfg"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+OUTPUT_FILE="shodan_ips_${TIMESTAMP}.txt"
+TEMP_FILE="/tmp/shodan_temp_${TIMESTAMP}.json"
 
-# Check if curl is installed
-if ! command -v curl &> /dev/null; then
-    dialog --msgbox "Error: 'curl' is not installed. Please install it to use this tool." 10 40
-    exit 1
-fi
-
-# Config file for API key
-CONFIG_FILE="$HOME/.shodan_api_key"
-
-# Function to get or set API key
-get_api_key() {
-    if [ -f "$CONFIG_FILE" ]; then
-        SHODAN_API_KEY=$(cat "$CONFIG_FILE")
-    else
-        SHODAN_API_KEY=$(dialog --inputbox "Enter your Shodan API key (it will be saved for future use):" 10 50 3>&1 1>&2 2>&3)
-        if [ -z "$SHODAN_API_KEY" ]; then
-            dialog --msgbox "API key cannot be empty." 10 30
-            exit 1
-        fi
-        echo "$SHODAN_API_KEY" > "$CONFIG_FILE"
-        chmod 600 "$CONFIG_FILE"
+# Check dependencies
+for cmd in dialog jq curl; do
+    if ! command -v $cmd &> /dev/null; then
+        echo "Error: '$cmd' is not installed. Please install it first."
+        exit 1
     fi
+done
+
+# Load config
+[ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
+
+# Save API key function
+save_api_key() {
+    API_KEY=$(dialog --title "Shodan API Key" --inputbox "Enter your Shodan API key:" 10 40 3>&1 1>&2 2>&3)
+    [ $? -eq 0 ] && echo "API_KEY=\"$API_KEY\"" > "$CONFIG_FILE" && \
+    dialog --title "Success" --msgbox "API key saved successfully!" 6 30 || \
+    dialog --title "Cancelled" --msgbox "Operation cancelled." 6 30
+    main_menu
 }
 
-# Get API key
-get_api_key
+# Tutorial sections
+show_tutorial() {
+    while true; do
+        choice=$(dialog --title "Shodan Tutorial" --menu "Select a section:" 18 50 8 \
+            1 "What is Shodan?" \
+            2 "Getting Started" \
+            3 "Basic Search Techniques" \
+            4 "Common Ports & Vulnerabilities" \
+            5 "Advanced Search Operators" \
+            6 "Understanding Results" \
+            7 "Practical Examples" \
+            8 "Back to Main Menu" 3>&1 1>&2 2>&3)
+
+        case $choice in
+            1) dialog --msgbox "
+Shodan is a search engine for internet-connected devices that lets you find:
+- Servers (web, mail, database)
+- Network devices (routers, switches)
+- IoT devices (cameras, smart devices)
+- Industrial control systems
+- And much more
+
+Unlike Google which indexes websites, Shodan indexes devices and services." 12 50 ;;
+            2) dialog --msgbox "
+1. Create an account at https://www.shodan.io/
+2. Get your API key from your account settings
+3. Install this script with dependencies:
+   - dialog (for UI)
+   - jq (for JSON processing)
+   - curl (for API requests)
+
+Basic workflow:
+1. Enter your API key
+2. Enter search query (dork)
+3. Get results saved to file" 13 50 ;;
+            3) dialog --msgbox "
+Basic search examples:
+
+Simple searches:
+- apache
+- nginx
+- iis
+
+Port-specific:
+- port:21 (FTP)
+- port:22 (SSH)
+- port:80 (HTTP)
+- port:443 (HTTPS)
+
+Country/city:
+- country:US
+- city:'New York'
+
+Organization:
+- org:google
+- org:amazon
+
+Product/version:
+- product:nginx
+- version:1.16.*" 16 50 ;;
+            4) dialog --msgbox "
+Common Vulnerable Ports:
+
+21   - FTP (often misconfigured, anonymous login)
+22   - SSH (weak credentials, outdated versions)
+23   - Telnet (unencrypted, weak auth)
+80/443 - HTTP/HTTPS (web vulnerabilities)
+139/445 - SMB (EternalBlue, weak config)
+3306 - MySQL (default credentials)
+3389 - RDP (bluekeep, weak credentials)
+5900 - VNC (unauthenticated access)
+27017 - MongoDB (unauthenticated, default config)
+
+Example vulnerable services:
+- FTP with anonymous login: port:21 anonymous
+- Outdated OpenSSH: product:openssh version:7.2
+- Heartbleed vulnerable: vuln:CVE-2014-0160
+- EternalBlue vulnerable: vuln:MS17-010" 18 50 ;;
+            5) dialog --msgbox "
+Advanced Search Operators:
+
+host:       host:example.com
+port:       port:22
+before/after: before:2023-01-01
+os:         os:linux
+geo:        geo:37.7749,-122.4194
+net:        net:8.8.8.0/24
+title:      title:'webcam'
+product:    product:apache
+version:    version:2.4.*
+vuln:      vuln:CVE-2021-44228
+
+Combination examples:
+- product:nginx country:US port:80
+- os:windows vuln:MS17-010
+- title:'webcam' geo:51.5074,-0.1278" 16 50 ;;
+            6) dialog --msgbox "
+Search results show:
+- IP address
+- Port number
+- Hostnames
+- Location (country/city)
+- Organization
+- Service banner
+- Last updated
+
+Detailed view includes:
+- All open ports
+- Service versions
+- SSL certificates
+- Vulnerability info
+- Historical data
+
+Tip: Use filters on left to narrow results by:
+- Country
+- Port
+- Organization
+- Product" 16 50 ;;
+            7) dialog --msgbox "
+Practical Search Examples:
+
+1. Find FTP servers allowing anonymous login:
+   port:21 anonymous
+
+2. Find outdated Apache servers:
+   product:apache version:2.2.*
+
+3. Find MongoDB without auth:
+   product:mongodb port:27017 -authentication
+
+4. Find Heartbleed vulnerable:
+   vuln:CVE-2014-0160
+
+5. Find EternalBlue vulnerable:
+   vuln:MS17-010
+
+6. Find webcams in London:
+   title:'webcam' city:'London'
+
+7. Find WordPress sites:
+   http.title:wordpress
+
+8. Find default router pages:
+   http.title:router http.component:router" 18 50 ;;
+            8) break ;;
+            *) break ;;
+        esac
+    done
+}
+
+# IP collection function
+collect_ips() {
+    [ -z "$API_KEY" ] && {
+        dialog --msgbox "API key not set. Please set it first." 6 40
+        main_menu
+        return
+    }
+
+    DORK=$(dialog --inputbox "Enter Shodan dork:" 10 60 3>&1 1>&2 2>&3)
+    [ $? -ne 0 ] && { main_menu; return; }
+    [ -z "$DORK" ] && { dialog --msgbox "Dork cannot be empty" 6 30; collect_ips; return; }
+
+    (
+        echo "10"; sleep 0.5; echo "Connecting..."
+        echo "30"; sleep 0.5; echo "Searching for: $DORK"
+        curl -s "https://api.shodan.io/shodan/host/search?key=${API_KEY}&query=${DORK}&limit=1000" -o "$TEMP_FILE" 2>/dev/null
+        echo "90"; sleep 0.5; echo "Processing results..."
+        echo "100"
+    ) | dialog --gauge "Please wait..." 10 60 0
+
+    if ! jq -e .matches[0] "$TEMP_FILE" >/dev/null 2>&1; then
+        ERROR_MSG=$(jq -r .error "$TEMP_FILE" 2>/dev/null || echo "No results found")
+        dialog --msgbox "Error: $ERROR_MSG" 8 50
+        rm -f "$TEMP_FILE"
+        main_menu
+        return
+    fi
+
+    jq -r '.matches[].ip_str' "$TEMP_FILE" > "$OUTPUT_FILE"
+    TOTAL=$(jq '.total | if . > 1000 then 1000 else . end' "$TEMP_FILE")
+    ACTUAL=$(wc -l < "$OUTPUT_FILE")
+
+    dialog --msgbox "Search complete!\nDork: $DORK\nTotal matches: $TOTAL\nIPs saved: $ACTUAL\nOutput: $OUTPUT_FILE" 10 60
+    rm -f "$TEMP_FILE"
+}
+
+# Example dorks function
+show_examples() {
+    dialog --msgbox "
+Example Shodan Dorks:
+
+Basic Examples:
+- apache
+- nginx country:US
+- port:22 os:linux
+- city:'New York'
+- org:google
+
+Vulnerability Examples:
+- port:21 anonymous (FTP anonymous login)
+- vuln:CVE-2014-0160 (Heartbleed)
+- vuln:MS17-010 (EternalBlue)
+- product:mongodb -authentication (unsecured MongoDB)
+- product:openssh version:7.2 (outdated SSH)
+
+Common Services:
+- port:80 http.title:wordpress (WordPress sites)
+- port:3306 product:mysql (MySQL servers)
+- port:3389 (RDP services)
+- port:5900 (VNC services)
+- product:apache version:2.2.* (outdated Apache)" 20 60
+}
+
+# About function
+show_about() {
+    dialog --msgbox "
+Shodan IP Collector v2.1
+Author: royzsec
+
+Features:
+- Interactive UI with dialog
+- API key storage
+- Real-time progress tracking
+- Tutorial for beginners
+- Example dorks included
+- Automatic result saving
+
+Requirements:
+- Bash
+- dialog, jq, curl
+- Shodan API key
+
+License: MIT
+© 2025 royzsec" 15 50
+}
+
+# Troubleshooting function
+show_troubleshooting() {
+    dialog --msgbox "
+Common Issues:
+
+1. Permission denied:
+   Run: chmod +x shodan_ui.sh
+
+2. Missing dependencies:
+   Install: dialog, jq, curl
+
+3. API errors:
+   - Verify your API key
+   - Check internet connection
+   - Visit shodan.io for account status
+
+4. No results:
+   - Try different dork
+   - Check API credits
+   - Some queries may be too specific
+
+5. Rate limits:
+   - Shodan has API limits
+   - Wait before trying again
+   - Consider membership upgrade" 18 50
+}
 
 # Main menu
-while true; do
-    choice=$(dialog --backtitle "Shodan IP Collector" \
-                    --title "Main Menu" \
-                    --menu "Choose an option:" 15 50 3 \
-                    1 "Enter Shodan Dork" \
-                    2 "Change API Key" \
-                    3 "Exit" \
-                    3>&1 1>&2 2>&3)
+main_menu() {
+    while true; do
+        choice=$(dialog --title "Shodan IP Collector" --menu "Main Menu:" 15 50 7 \
+            1 "Set/Change API Key" \
+            2 "Collect IPs from Shodan" \
+            3 "Example Dorks" \
+            4 "Shodan Tutorial" \
+            5 "Troubleshooting" \
+            6 "About" \
+            7 "Exit" 3>&1 1>&2 2>&3)
 
-    case $choice in
-        1)
-            # Ask for Shodan dork
-            dork=$(dialog --inputbox "Enter your Shodan dork (e.g., 'hostname:.gov.uk port:21'):" 10 50 3>&1 1>&2 2>&3)
-            if [ -z "$dork" ]; then
-                dialog --msgbox "Dork cannot be empty." 10 30
-                continue
-            fi
+        case $choice in
+            1) save_api_key ;;
+            2) collect_ips ;;
+            3) show_examples ;;
+            4) show_tutorial ;;
+            5) show_troubleshooting ;;
+            6) show_about ;;
+            7) dialog --yesno "Exit?" 6 20 && exit 0 ;;
+            *) exit 0 ;;
+        esac
+    done
+}
 
-            # URL-encode the dork
-            dork_encoded=$(printf '%s' "$dork" | jq -sRr @uri)
+# Check for API key on first run
+[ -z "$API_KEY" ] && dialog --yesno "No API key found. Set it now?" 7 40 && save_api_key
 
-            # Output file
-            output_file="shodan_ips_$(date +%Y%m%d_%H%M%S).txt"
-
-            # Fetch total results first
-            response=$(curl -s "https://api.shodan.io/shodan/host/search?key=$SHODAN_API_KEY&query=$dork_encoded" 2>/dev/null)
-            total_results=$(echo "$response" | jq '.total' 2>/dev/null)
-
-            if ! [[ "$total_results" =~ ^[0-9]+$ ]]; then
-                dialog --msgbox "Error: No results found or invalid dork." 10 40
-                continue
-            fi
-
-            if [ "$total_results" -eq 0 ]; then
-                dialog --msgbox "No results found for the given dork." 10 40
-                continue
-            fi
-
-            total_pages=$(( ($total_results + 99) / 100 ))
-
-            # Show progress
-            (
-                page=1
-                ips_collected=0
-                while [ $ips_collected -lt $total_results ]; do
-                    response=$(curl -s "https://api.shodan.io/shodan/host/search?key=$SHODAN_API_KEY&query=$dork_encoded&page=$page" 2>/dev/null)
-                    echo "$response" | jq -r '.matches[].ip_str' >> "$output_file"
-                    ips_collected=$((ips_collected + 100))
-                    page=$((page + 1))
-                    percent=$(( (page - 1) * 100 / total_pages ))
-                    echo "$percent"
-                    sleep 1
-                done
-            ) | dialog --gauge "Collecting IPs... (Page $page of $total_pages)" 10 50 0
-
-            dialog --msgbox "IPs collected and saved to $output_file" 10 40
-            ;;
-        2)
-            # Change API key
-            SHODAN_API_KEY=$(dialog --inputbox "Enter your new Shodan API key:" 10 40 3>&1 1>&2 2>&3)
-            if [ -z "$SHODAN_API_KEY" ]; then
-                dialog --msgbox "API key cannot be empty." 10 30
-                continue
-            fi
-            echo "$SHODAN_API_KEY" > "$CONFIG_FILE"
-            chmod 600 "$CONFIG_FILE"
-            dialog --msgbox "API key updated successfully." 10 30
-            ;;
-        3)
-            clear
-            exit 0
-            ;;
-        *)
-            dialog --msgbox "Invalid option. Please try again." 10 30
-            ;;
-    esac
-done
+# Start main menu
+main_menu
 
